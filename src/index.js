@@ -26,18 +26,6 @@ let base = getBasePlugins()
 
 let contextMap = new Map()
 
-function removeExtraSpaces(str = '') {
-  return str.replace(/\u0020+/g, ' ').trim()
-}
-
-function trimStart(str = '') {
-  return str.replace(/^(\u0020)+/, '')
-}
-
-function trimEnd(str = '') {
-  return str.replace(/(\u0020)+$/, '')
-}
-
 function bigSign(bigIntValue) {
   return (bigIntValue > 0n) - (bigIntValue < 0n)
 }
@@ -81,7 +69,7 @@ function getClassOrderPolyfill(classes, { env }) {
 
 function sortClasses(
   classStr,
-  { env, ignoreFirst = false, ignoreLast = false },
+  { env, ignoreFirst = false, ignoreLast = false, tidyWhitespace = { start: true, end: true } },
 ) {
   if (typeof classStr !== 'string' || classStr === '') {
     return classStr
@@ -93,6 +81,10 @@ function sortClasses(
     return classStr
   }
 
+  if (classStr.includes('\n')) {
+    tidyWhitespace = false
+  }
+
   let result = ''
   let parts = classStr.split(/(\s+)/)
   let classes = parts.filter((_, i) => i % 2 === 0)
@@ -100,6 +92,10 @@ function sortClasses(
 
   if (classes[classes.length - 1] === '') {
     classes.pop()
+  }
+
+  if (tidyWhitespace) {
+    whitespace = whitespace.map(() => ' ')
   }
 
   let prefix = ''
@@ -118,7 +114,12 @@ function sortClasses(
     result += `${classes[i]}${whitespace[i] ?? ''}`
   }
 
-  return removeExtraSpaces(prefix + result + suffix)
+  if (tidyWhitespace) {
+    result = result
+      .replace(/^\s+/, tidyWhitespace.start ? '' : ' ')
+      .replace(/\s+$/, tidyWhitespace.end ? '' : ' ')
+  }
+  return prefix + result + suffix
 }
 
 function sortClassList(classList, { env }) {
@@ -531,6 +532,10 @@ function sortTemplateLiteral(node, { env }) {
       env,
       ignoreFirst: i > 0 && !/^\s/.test(quasi.value.raw),
       ignoreLast: i < node.expressions.length && !/\s$/.test(quasi.value.raw),
+      tidyWhitespace: {
+        start: i === 0,
+        end: i >= node.expressions.length,
+      },
     })
 
     quasi.value.cooked = same
@@ -538,18 +543,13 @@ function sortTemplateLiteral(node, { env }) {
       : sortClasses(quasi.value.cooked, {
           env,
           ignoreFirst: i > 0 && !/^\s/.test(quasi.value.cooked),
-          ignoreLast:
-            i < node.expressions.length && !/\s$/.test(quasi.value.cooked),
+          ignoreLast: i < node.expressions.length && !/\s$/.test(quasi.value.cooked),
+          tidyWhitespace: {
+            start: i === 0,
+            end: i >= node.expressions.length,
+          },
       })
-    
-    if (i === 0) {
-      quasi.value.raw = trimStart(quasi.value.raw)
-    }
-
-    if (i === node.quasis.length - 1) {
-      quasi.value.raw = trimEnd(quasi.value.raw)
-    }
-    
+        
     if (
       quasi.value.raw !== originalRaw ||
       quasi.value.cooked !== originalCooked
@@ -698,14 +698,6 @@ function transformAstro(ast, { env, changes }) {
         attr.value = sortClasses(attr.value, {
           env,
         })
-
-        if (index === 0) {
-          attr.value = trimStart(attr.value)
-        }
-
-        if (index === ast.attributes.length - 1) {
-          attr.value = trimEnd(attr.value)
-        }
       }
     }
   }
