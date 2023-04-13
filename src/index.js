@@ -27,7 +27,7 @@ let base = getBasePlugins()
 let contextMap = new Map()
 
 function removeExtraSpaces(str = '') {
-  return str.replace(/\u0020+/g, ' ')
+  return str.replace(/\u0020+/g, ' ').trim()
 }
 
 function trimStart(str = '') {
