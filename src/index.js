@@ -26,6 +26,18 @@ let base = getBasePlugins()
 
 let contextMap = new Map()
 
+function removeExtraSpaces(str = '') {
+  return str.replace(/\u0020+/g, ' ')
+}
+
+function trimStart(str = '') {
+  return str.replace(/^(\u0020)+/, '')
+}
+
+function trimEnd(str = '') {
+  return str.replace(/(\u0020)+$/, '')
+}
+
 function bigSign(bigIntValue) {
   return (bigIntValue > 0n) - (bigIntValue < 0n)
 }
@@ -106,7 +118,7 @@ function sortClasses(
     result += `${classes[i]}${whitespace[i] ?? ''}`
   }
 
-  return prefix + result + suffix
+  return removeExtraSpaces(prefix + result + suffix)
 }
 
 function sortClassList(classList, { env }) {
@@ -528,8 +540,16 @@ function sortTemplateLiteral(node, { env }) {
           ignoreFirst: i > 0 && !/^\s/.test(quasi.value.cooked),
           ignoreLast:
             i < node.expressions.length && !/\s$/.test(quasi.value.cooked),
-        })
+      })
+    
+    if (i === 0) {
+      quasi.value.raw = trimStart(quasi.value.raw)
+    }
 
+    if (i === node.quasis.length - 1) {
+      quasi.value.raw = trimEnd(quasi.value.raw)
+    }
+    
     if (
       quasi.value.raw !== originalRaw ||
       quasi.value.cooked !== originalCooked
@@ -669,7 +689,7 @@ function transformAstro(ast, { env, changes }) {
     ast.type === 'custom-element' ||
     ast.type === 'component'
   ) {
-    for (let attr of ast.attributes ?? []) {
+    for (let [index, attr] of (ast.attributes ?? []).entries()) {
       if (
         attr.name === 'class' &&
         attr.type === 'attribute' &&
@@ -678,6 +698,14 @@ function transformAstro(ast, { env, changes }) {
         attr.value = sortClasses(attr.value, {
           env,
         })
+
+        if (index === 0) {
+          attr.value = trimStart(attr.value)
+        }
+
+        if (index === ast.attributes.length - 1) {
+          attr.value = trimEnd(attr.value)
+        }
       }
     }
   }
